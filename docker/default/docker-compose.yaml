@@ -1,0 +1,123 @@
+services:
+
+
+  account:
+    image: prabal864/livereconai:account-P2
+    container_name: accountservice
+    ports:
+        - "8072:8072"
+    deploy:
+      resources:
+        limits:
+          cpus: 1.25
+          memory: 516M
+    environment:
+      RABBITMQ_HOST: "rabbit"
+      SPRING_CONFIG_IMPORT: "optional:configserver:http://configserver:8084/"
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: "http://eurekaserver:8761/eureka/"
+
+    networks:
+      - FinancePilot
+
+  auth:
+    image: prabal864/livereconai:auth-P1
+    container_name: authservice
+    ports:
+      - "8086:8086"
+    deploy:
+      resources:
+        limits:
+          cpus: 1.25
+          memory: 516M
+    environment:
+      RABBITMQ_HOST: "rabbit"
+      SPRING_CONFIG_IMPORT: "optional:configserver:http://configserver:8084/"
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: "http://eurekaserver:8761/eureka/"
+
+    networks:
+      - FinancePilot
+
+  eurekaserver:
+    image: prabal864/livereconai:eureka-P1
+    container_name: eurekaserver
+    ports:
+      - "8761:8761"
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 700M
+
+    healthcheck:
+      test: curl --fail --silent http://eurekaserver:8761/actuator/health/readiness | grep UP || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 20
+    networks:
+      - FinancePilot
+    environment:
+      SPRING_APPLICATION_NAME: "eurekaserver"
+      SPRING_CONFIG_IMPORT: "configserver:http://configserver:8084/"
+
+  configserver:
+    image: prabal864/livereconai:config-P1
+    container_name: configserver-ms
+    ports:
+      - "8084:8084"
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 700M
+
+    healthcheck:
+      test: "curl --fail --silent http://configserver:8084/actuator/health | grep UP || exit 1"
+      interval: 30s
+      timeout: 5s
+      retries: 20
+      start_period: 35s
+    networks:
+      - FinancePilot
+    environment:
+      SPRING_RABBITMQ_HOST: "rabbit"
+      SERVER_PORT: 8084
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: "http://eurekaserver:8761/eureka/"
+
+  transaction:
+    image: prabal864/livereconai:transaction-P1
+    container_name: transaction
+    ports:
+      - "8085:8085"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 700M
+    networks:
+      - FinancePilot
+    environment:
+      SPRING_CONFIG_IMPORT: "optional:configserver:http://configserver:8084/"
+      SPRING_RABBITMQ_HOST: "rabbit"
+      SERVER_PORT: 8085
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: "http://eurekaserver:8761/eureka/"
+
+  ragservice:
+    image: prabal864/livereconai:ragservice-0.1
+    container_name: ragservice
+    ports:
+        - "9000:9000"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.5"
+          memory: 1024M
+    networks:
+      - FinancePilot
+
+networks:
+  FinancePilot:
+    driver: bridge
+
+volumes:
+  keycloak_data:
+    driver: local
